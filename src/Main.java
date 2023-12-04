@@ -6,7 +6,6 @@ import java.io.FileInputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.*;
-import java.util.List;
 
 public class Main {
     private static ResourceBundle resourceBundle;
@@ -33,11 +32,11 @@ public class Main {
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setBorder(BorderFactory.createEmptyBorder(20, 25, 20, 25));
 
-        Font customFont = new Font("Coo Hew ", Font.BOLD,14);
+        Font customFont = new Font("Coo Hew ", Font.BOLD, 14);
 
         JLabel classLabel = new JLabel(resourceBundle.getString("class_label"));
         classLabel.setFont(customFont);
-        JTextField classNameField=new JTextField();
+        JTextField classNameField = new JTextField();
         classNameField.setPreferredSize(new Dimension(200, 25));
         classNameField.setFont(customFont);
         panel.add(classLabel);
@@ -82,80 +81,105 @@ public class Main {
         classNameField.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                String className =classNameField.getText();
-                if ("Experiment".equals(className)) {
+                String className = classNameField.getText();
+                try {
+                    Class<?> enterClass = Class.forName(className);
+                    Field[] fields = enterClass.getDeclaredFields();
                     if (!classField.containsKey(className)) {
-                        Field[] fields = Experiment.class.getDeclaredFields();
                         classField.put(className, fields);
                     }
                     populateFieldComboBox(fieldComboBox, classField.get(className));
-                } else if ("Exp".equals(className)) {
-                    if (!classField.containsKey(className)) {
-                        Field[] fields = Exp.class.getDeclaredFields();
-                        classField.put(className, fields);
-                    }
-                    populateFieldComboBox(fieldComboBox, classField.get(className));
-                } else {
-                    fieldComboBox.removeAllItems();
+
+                } catch (ClassNotFoundException ex) {
+                    throw new RuntimeException(ex);
                 }
+
             }
         });
 
         executeButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                String className =  classNameField.getText();
+                String className = classNameField.getText();
                 String fieldName = (String) fieldComboBox.getSelectedItem();
                 String parameter = paramTextField.getText();
-                //fieldName=parameter;
+                String TypeOfField = null;
                 try {
-                    if ("Experiment".equals(className)) {
-                        if ("timeZone".equals(fieldName)) {
-                            // Выполнение метода Experiment
-                            Experiment experiment = new Experiment("GMT", "USD", "EUR", 100.0);
-                            String selectedLanguage = (String) languageComboBox.getSelectedItem();
-                            if ("English".equals(selectedLanguage)) {
-                                resultText.setText(executeExperiment(experiment, "showTimeInLondon", parameter));
-                            }
-                            else if ("Русский".equals(selectedLanguage)) {
-                                resultText.setText(executeExperiment(experiment, "showTimeInBelarus", parameter));
-                            }
-
-
-                        } else if ("amount".equals(fieldName)) {
-                            // Выполнение метода Experiment
-                            double amount = Double.parseDouble(parameter);
-                            Experiment experiment = new Experiment("GMT", "BYN", "USD", amount);
-                            Properties properties = new Properties();
-                            FileInputStream fileInputStream = new FileInputStream("src\\value.properties");
-                            properties.load(fileInputStream);
-
-                            double usdRate = Double.parseDouble(properties.getProperty("USD"));
-                            String selectedLanguage = (String) languageComboBox.getSelectedItem();
-                            if ("English".equals(selectedLanguage)) {
-                                resultText.setText(executeExperiment(experiment, "showUSDtoBYN", usdRate, Double.parseDouble(String.valueOf(amount))));
-                            } else if ("Русский".equals(selectedLanguage)) {
-                                resultText.setText(executeExperiment(experiment, "showBYNtoUSD", usdRate, Double.parseDouble(String.valueOf(amount))));
-                            }
-
+                    if ("timeZone".equals(fieldName) && "Experiment".equals(className)) {
+                        // Выполнение метода Experiment
+                        Experiment experiment = new Experiment("GMT", "USD", "EUR", 100.0);
+                        String selectedLanguage = (String) languageComboBox.getSelectedItem();
+                        if ("English".equals(selectedLanguage)) {
+                            resultText.setText(executeExperiment(experiment, "showTimeInLondon", parameter));
+                        } else if ("Русский".equals(selectedLanguage)) {
+                            resultText.setText(executeExperiment(experiment, "showTimeInBelarus", parameter));
                         }
+
+
+                    } else if ("amount".equals(fieldName) && "Experiment".equals(className)) {
+                        // Выполнение метода Experiment
+                        double amount = Double.parseDouble(parameter);
+                        Experiment experiment = new Experiment("GMT", "BYN", "USD", amount);
+                        Properties properties = new Properties();
+                        FileInputStream fileInputStream = new FileInputStream("src\\value.properties");
+                        properties.load(fileInputStream);
+
+                        double usdRate = Double.parseDouble(properties.getProperty("USD"));
+                        String selectedLanguage = (String) languageComboBox.getSelectedItem();
+                        if ("English".equals(selectedLanguage)) {
+                            resultText.setText(executeExperiment(experiment, "showUSDtoBYN", usdRate, Double.parseDouble(String.valueOf(amount))));
+                        } else if ("Русский".equals(selectedLanguage)) {
+                            resultText.setText(executeExperiment(experiment, "showBYNtoUSD", usdRate, Double.parseDouble(String.valueOf(amount))));
+                        }
+
                     } else {
-//                        if("Exp".equals(className)) {
-//                            if("money".equals(fieldName)){
-//                            Exp money=new Exp();
-//                            money.SetMoney(parameter);
-//                            }else if("time".equals(fieldName)){
-//
-//                            }
-//                        }
-                        resultText.setText("Field changed");
+                        try {
+                            boolean canChange = true;
+                            Class<?> enterClass = Class.forName(className);
+                            Field field = enterClass.getDeclaredField(fieldName);
+                            field.setAccessible(true);
+                            Object instance = enterClass.newInstance();
+                            Class<?> fieldType = field.getType();
+                            TypeOfField = fieldType.getTypeName();
+                            Object param = null;
+                            Object fieldBeforeChange=field.get(instance);
+                            if (fieldType.equals(int.class) || fieldType.equals(Integer.class)) {
+                                param = Integer.parseInt(parameter);// int
+                            } else if (fieldType.equals(Double.class) || fieldType.equals(double.class)) {
+                                param = Double.parseDouble(parameter);// double
+                            } else if (fieldType.equals(float.class) || fieldType.equals(Float.class)) {
+                                param = Float.parseFloat(parameter);// float
+                            } else if (fieldType.equals(byte.class) || fieldType.equals(Byte.class)) {
+                                param = Byte.parseByte(parameter);// byte
+                            } else if (fieldType.equals(short.class) || fieldType.equals(Short.class)) {
+                                param = Short.parseShort(parameter);//short
+                            } else if (fieldType.equals(long.class) || fieldType.equals(Long.class)) {
+                                param = Long.parseLong(parameter);//long
+                            } else if (fieldType.equals(boolean.class) || fieldType.equals(Boolean.class)) {
+                                param = Boolean.parseBoolean(parameter);//boolean
+                            } else if (fieldType.equals(char.class)) {
+                                param = parameter.charAt(0);
+                            } else if (fieldType.equals(String.class)) {
+                                param = parameter;
+                            } else {
+                                canChange = false;
+                            }
+                            if (canChange) {
+                                field.set(instance, param);
+                                resultText.setText("Field before change:"+fieldBeforeChange+"\nField changed for " + field.get(instance));
+                            } else {
+                                resultText.setText("This field can't be changed\n Select another field");
+                            }
+                        } catch (ClassNotFoundException ex) {
+                            throw new RuntimeException(ex);
+                        }
                     }
+
                 } catch (Exception ex) {
-                    resultText.setText("Error: " + ex.getMessage());
+                    resultText.setText("Error: " + ex.getMessage() + "\n Change type of input parameter, because type of field is " + TypeOfField);
                 }
             }
         });
-
 
 
         languageComboBox.addActionListener(new ActionListener() {
